@@ -12,7 +12,7 @@ jar {
 	baseName 'logger'
 }
 
-version = '0.1'
+version = '0.2'
 
 dependencies {
     // Use JUnit test framework.

@@ -14,15 +14,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import xyz.binfish.logger.Level;
 import xyz.binfish.logger.Formatter;
+import xyz.binfish.logger.LoggerConfig;
 
 public class Logger {
 
 	private static Logger instance;
 	private static PrintStream writer;
 
-	private static Config config;
+	private static LoggerConfig config;
 
 	private File logDirectoryFile;
 	private Level globalLevel;
@@ -70,13 +74,13 @@ public class Logger {
 		}
 	}
 
-	public static Logger createLogger(Config modifiConfig) {
+	public static Logger createLogger(LoggerConfig modifiConfig) {
 		if(isInitialized) {
 			throw new ExceptionInInitializerError("The logger has already been initialized");
 		}
 
 		if(modifiConfig == null) {
-			config = new Config();
+			config = new LoggerConfig();
 		} else {
 			config = modifiConfig;
 		}
@@ -120,13 +124,17 @@ public class Logger {
 		int index = 0;
 
 		for(Level item : levels) {
-			if(item.getName() == newLevel.toUpperCase()) {
+			if(item.getName().equals(newLevel.toUpperCase())) {
 				break;
 			}
 			index++;
 		}
 
-		this.globalLevel = levels.get(index);
+		try {
+			this.globalLevel = levels.get(index);
+		} catch(IndexOutOfBoundsException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public void setLevel(int newLevel) {
@@ -147,7 +155,7 @@ public class Logger {
 
 				long diff = (new Date().getTime() - new Date(time.toMillis()).getTime());
 
-				if((int) (diff / (60 * 1000)) > config.getCleaningInterval()) {
+				if((int) (diff / (60 * 1000)) > config.getCleaningMinAge()) {
 					String filename = directoryFilesList[i].getName();
 
 					directoryFilesList[i].delete();
@@ -160,7 +168,10 @@ public class Logger {
 	}
 
 	public void log(String message) {
-		// FIXME i don't know гыг
+		if(message == null || message.length() == 0) {
+			message = "NULL log message";
+		}
+
 		if(globalLevel.getOrder() != 0) {
 			message = "[" + globalLevel.getName() + "] " + message;
 		}
@@ -169,24 +180,76 @@ public class Logger {
 		if(canWrite) write(message);
 	}
 
-	public void log(String message, int logLevel) {
+	public void log(@Nonnull String message, int logLevel) {
 		String formattedMessage = Formatter.format(levels.get(logLevel), message);
 		this.log(formattedMessage);
 	}
 
-	public void error(String message) {
+	public void error(@Nonnull Throwable throwable) {	
+		log("Cause of Exception: " + throwable.getCause(), 1);
+	}
+
+	public void error(@Nonnull String message) {
 		log(message, 1);
 	}
 
-	public void warn(String message) {
+	public void warn(@Nonnull String message) {
 		log(message, 2);
 	}
 
-	public void info(String message) {
+	public void info(@Nonnull String message) {
 		log(message, 3);
 	}
 
-	public void debug(String message) {
+	public void debug(@Nonnull String message, @Nullable Object... args) {
+		if(args != null || args.length != 0) {
+			message = String.format(message, args);
+		}
+
 		log(message, 4);
+	}
+
+	public void debug(@Nonnull Object object) {
+		log(this.toString(object), 4);
+	}
+
+	private String toString(Object object) {
+		if(object == null) {
+			return "null";
+		}
+
+		if(!object.getClass().isArray()) {
+			return object.toString();
+		}
+
+		if(object instanceof boolean[]) {
+			return Arrays.toString((boolean[]) object);
+		}
+		if(object instanceof byte[]) {
+			return Arrays.toString((byte[]) object);
+		}
+		if(object instanceof char[]) {
+			return Arrays.toString((char[]) object);
+		}
+		if(object instanceof short[]) {
+			return Arrays.toString((short[]) object);
+		}
+		if(object instanceof int[]) {
+			return Arrays.toString((int[]) object);
+		}
+		if(object instanceof long[]) {
+			return Arrays.toString((long[]) object);
+		}
+		if(object instanceof float[]) {
+			return Arrays.toString((float[]) object);
+		}
+		if(object instanceof double[]) {
+			return Arrays.toString((double[]) object);
+		}
+		if(object instanceof Object[]) {
+			return Arrays.toString((Object[]) object);
+		}
+
+		return "Couldn't find a correct type for the object";
 	}
 }

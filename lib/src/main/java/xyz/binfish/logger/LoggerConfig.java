@@ -1,17 +1,17 @@
 package xyz.binfish.logger;
 
-public class Config {
+public class LoggerConfig {
 
 	public static String logDirectory;
 	public static String formatTimePattern = "dd-MM-yyyy HH:mm:ss";
 
 	public static boolean autoCleaning = false;
 	public static boolean notifyDeleteFiles = false;
-	public static int cleaningMinuteInterval = 0;
+	public static int minAgeInMinutes = 0;
 
-	public Config() { }
+	public LoggerConfig() { }
 
-	public Config(String logDirectory) {
+	public LoggerConfig(String logDirectory) {
 		this.logDirectory = logDirectory;
 	}
 
@@ -19,7 +19,7 @@ public class Config {
 		return this.autoCleaning;
 	}
 
-	public int getCleaningInterval() {
-		return this.cleaningMinuteInterval;
+	public int getCleaningMinAge() {
+		return this.minAgeInMinutes;
 	}
 }
