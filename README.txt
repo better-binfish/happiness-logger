@@ -1,4 +1,4 @@
-### Initialize
+### Initialize.
 
 ```
 // Importation
@@ -17,19 +17,19 @@ Logger logger = Logger.createLogger(...);
 logger.log("Hello World!");
 ```
 
-### List all log levels
+### Table all log levels.
 
-```
-.error() - for error messages
-.warn()  - for any warnings
-.info()  - for information messages
-.debug() - for debugging
-```
++----------+---------------------------+
+| .error() | for error messages.       |
+| .warn()  | for any warnings.         |
+| .info()  | for information messages. |
+| .debug() | for debugging.            |
++----------+---------------------------+
 
 	Note: The debug function supports collections. (only this function)
 
 
-### Using
+### Using.
 
 For example, let's get an instance of our logger in another file and use it:
 
@@ -55,8 +55,34 @@ logger.closeLogger(); // If you are not going to use the logger, then you can cl
 // ...
 ```
 
+In order to use colors, you must enable the `useColor` flag in the logger configuration,
+this can be done with the `LoggerConfig#setUseColors()` method of the LoggerConfig class.
 
-### Configuration Options Reference
+An example of using colors.
+
+```
+// ...
+
+logger.info("%greenAll modules loaded successfully!%reset"); // This message will be green
+                                                             // `%reset` needed to reset the color otherwise 
+                                                             // all other messages will be green.
+// ...
+```
+
+Table of all available colors.
++---------+-----------------------+
+| %reset  | used to reset colors. |
+| %black  |                       |
+| %red    |                       |
+| %green  |                       |
+| %yellow |                       |
+| %blue   |                       |
+| %purple |                       |
+| %cyan   |                       |
+| %white  |                       |
++---------+-----------------------+
+
+### Configuration Options Reference.
 
 ```
 String logDirectory - path to directory for storing logs
@@ -64,26 +90,26 @@ String logDirectory - path to directory for storing logs
 	Note: You do not need to specify the directory for storing logs!
 
 String formatTimePattern - date and time pattern for formatter (Default: "dd-MM-yyyy HH:mm:ss")
-
 boolean autoCleaning - flag responsible for automatic logs cleanup (Default: false)
 boolean notifyDeleteFiles - flag responsible for notification about cleared files (Default: false)
-int minAgeInMinutes - this is the minimum age in minutes everything older will be deleted (Default: 0)
+boolean showThread - flag responsible for showing the thread during logging (Default: false)
+boolean useColors - flag responsible for formatting colors in ANSI codes. (Default: false)
+int minimumAgeInMinutes - this is the minimum age in minutes everything older will be deleted (Default: 0)
 
-	Note: If "minAgeInMinutes" will equal 0, then after each new launch the entire file will be deleted!
+	Note: If "minimumAgeInMinutes" will equal 0, then after each new launch the entire file will be deleted!
 
 ```
 
 Example of creating a custom config:
 
 ```
-LoggerConfig lgConf = new LoggerConfig();
-
-lgConf.autoCleaning = true;
-lgConf.notifyDeleteFiles = true;
-lgConf.cleaningMinuteInterval = 60 * 24 * 3; // equals 3 days
-
-lgConf.logDirectory = "my_log_files/";
-lgConf.formatTimePattern = "yyyy/MM/dd HH:mm:ss";
+LoggerConfig lgConf = new LoggerConfig()
+	.setAutoCleaning(true)
+	.setNotifyDeleteFiles(true)
+	.setMinimumAgeInMinutes(60 * 24 * 3) // equals 3 days
+	.setUseColors(true)
+	.setDirectory("my_log_files/")
+	.setFormatTimePattern("yyyy/MM/dd HH:mm:ss");
 
 Logger.createLogger(lgConf);
 ```

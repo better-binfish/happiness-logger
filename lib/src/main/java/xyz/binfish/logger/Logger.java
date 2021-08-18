@@ -3,23 +3,17 @@ package xyz.binfish.logger;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import xyz.binfish.logger.Level;
-import xyz.binfish.logger.Formatter;
-import xyz.binfish.logger.LoggerConfig;
 
 public class Logger {
 
@@ -27,34 +21,28 @@ public class Logger {
 	private static PrintStream writer;
 
 	private static LoggerConfig config;
+	private static File logDirectoryFile;
 
-	private File logDirectoryFile;
-	private Level globalLevel;
-
-	private static ArrayList<Level> levels = new ArrayList<Level>(Arrays.asList(
-					new Level("OFF", 0),
-					new Level("ERROR", 1),
-					new Level("WARN", 2),
-					new Level("INFO", 3),
-					new Level("DEBUG", 4)
-				));
+	private static final ThreadLocal<String> localThread = new ThreadLocal<>();
 
 	private static boolean canWrite = false;
 	private static boolean isInitialized = false;
 
-	private Logger() {
-		this.globalLevel = levels.get(0);
 
-		if(config.logDirectory != null) {
+	private Logger() {
+		if(config.hasDirectory()) {
 			try {
-				this.logDirectoryFile = new File(config.logDirectory);
+				this.logDirectoryFile = new File(config.getDirectory());
 
 				if(logDirectoryFile.exists() && logDirectoryFile.isDirectory()) {
-					if(config.autoCleaning) {
-						scanDir(logDirectoryFile);
+					if(config.isAutoCleaning()) {
+						this.scanDir(logDirectoryFile);
 					}
 
-					String absolutePathToFile = logDirectoryFile.getAbsolutePath() + "/" + java.time.LocalDate.now() + ".log";
+					String absolutePathToFile = String.format(
+							"%s/%s.log", logDirectoryFile.getAbsolutePath(), java.time.LocalDate.now()
+					);
+
 					File logFile = new File(absolutePathToFile);
 
 					if(!logFile.exists()) {
@@ -66,7 +54,7 @@ public class Logger {
 						writer = new PrintStream(new FileOutputStream(logFile, true));
 					}
 				} else {
-					throw new IOException("The specified path is not a directory, or it does not exist");
+					throw new IOException("The specified path is not a directory, or it does not exist.");
 				}
 			} catch(IOException e) {
 				e.printStackTrace();
@@ -74,9 +62,15 @@ public class Logger {
 		}
 	}
 
+	/*
+	 * Creates an instance of the logger and returns it.
+	 *
+	 * @param modifiConfig the modified logger configuration object.
+	 * @return the created logger instance.
+	 */
 	public static Logger createLogger(LoggerConfig modifiConfig) {
 		if(isInitialized) {
-			throw new ExceptionInInitializerError("The logger has already been initialized");
+			throw new ExceptionInInitializerError("The logger has already been initialized.");
 		}
 
 		if(modifiConfig == null) {
@@ -85,7 +79,7 @@ public class Logger {
 			config = modifiConfig;
 		}
 
-		Formatter.setTimePattern(config.formatTimePattern);
+		Formatter.setTimePattern(config.getFormatTimePattern());
 		isInitialized = true;
 		instance = new Logger();
 
@@ -96,7 +90,7 @@ public class Logger {
 		if(isInitialized) {
 			return instance;
 		} else {
-			throw new NullPointerException("The logger was not initialized");
+			throw new NullPointerException("The logger was not initialized.");
 		}
 	}
 
@@ -108,97 +102,85 @@ public class Logger {
 
 			writer.close();
 		} else {
-			throw new NullPointerException("The logger was not initialized");
+			throw new NullPointerException("The logger was not initialized.");
 		}
 	}
 
-	public static boolean isInit() {
-		return isInitialized;
+	/*
+	 * Get the configuration of the logger as a LoggerConfig object.
+	 *
+	 * @return the LoggerConfig object.
+	 */
+	public static LoggerConfig getConfig() {
+		return config;
 	}
 
-	public Level getLevel() {
-		return globalLevel;
-	}
 
-	public void setLevel(String newLevel) {
-		int index = 0;
+	/*
+	 * Get the name of the current thread.
+	 *
+	 * @return the name of the thread as String.
+	 */
+	public static String getThreadName() {
+		String thread = localThread.get();
 
-		for(Level item : levels) {
-			if(item.getName().equals(newLevel.toUpperCase())) {
-				break;
-			}
-			index++;
+		if(thread != null) {
+			return thread;
 		}
 
-		try {
-			this.globalLevel = levels.get(index);
-		} catch(IndexOutOfBoundsException e) {
-			e.printStackTrace();
+		return null;
+	}
+
+	public static Logger setThread(String thread) {
+		if(thread != null) {
+			localThread.set(thread);
 		}
+
+		return new Logger();
 	}
 
-	public void setLevel(int newLevel) {
-		this.globalLevel = levels.get(newLevel);
-	}
-
-	private void write(String formattedMessage) {
-		writer.printf("%s%n", formattedMessage);
-	}
-
-	private void scanDir(File dir) throws IOException {
-		File[] directoryFilesList = dir.listFiles();
-
-		if(directoryFilesList != null) {
-			for(int i = 0; i < directoryFilesList.length; i++) {
-				BasicFileAttributes attrs = Files.readAttributes(directoryFilesList[i].toPath(), BasicFileAttributes.class);
-				FileTime time = attrs.creationTime();
-
-				long diff = (new Date().getTime() - new Date(time.toMillis()).getTime());
-
-				if((int) (diff / (60 * 1000)) > config.getCleaningMinAge()) {
-					String filename = directoryFilesList[i].getName();
-
-					directoryFilesList[i].delete();
-					if(config.notifyDeleteFiles) {
-						this.log("\t-> File `" + filename + "` has been deleted", 3);
-					}
-				}
-			}
-		}
-	}
-
+	/*
+	 * Below are methods for printing to the console
+	 * and, if possible, to a file of the messages passed
+	 * as an argument. Messages are formatted using Formatter
+	 * class in the #log(String, int) method.
+	 */
 	public void log(String message) {
+		this.log(message, 0);
+	}
+
+	public void log(String message, int orderLevel) {
 		if(message == null || message.length() == 0) {
-			message = "NULL log message";
+			message = "NULL also known as nothing.";
 		}
 
-		if(globalLevel.getOrder() != 0) {
-			message = "[" + globalLevel.getName() + "] " + message;
-		}
+		message = Formatter.format(Level.getLevel(orderLevel), message);
 
 		System.out.printf("%s%n", message);
-		if(canWrite) write(message);
+
+		if(canWrite) this.write(message);
 	}
 
-	public void log(@Nonnull String message, int logLevel) {
-		String formattedMessage = Formatter.format(levels.get(logLevel), message);
-		this.log(formattedMessage);
-	}
-
-	public void error(@Nonnull Throwable throwable) {	
-		log("Cause of Exception: " + throwable.getCause(), 1);
+	public void error(@Nonnull Throwable throwable) {
+		this.log(throwable.getMessage() + ": " + throwable.getCause() + "\n"
+				+ Formatter.getStackTraceString(throwable), 1);
 	}
 
 	public void error(@Nonnull String message) {
-		log(message, 1);
+		this.log(message, 1);
+	}
+
+	public void error(@Nonnull String message, @Nonnull Throwable throwable) {
+		this.log(message + "\n" + throwable.getMessage() + ": " + throwable.getCause() + "\n"
+				+ Formatter.getStackTraceString(throwable), 1);
 	}
 
 	public void warn(@Nonnull String message) {
-		log(message, 2);
+		this.log(message, 2);
 	}
 
 	public void info(@Nonnull String message) {
-		log(message, 3);
+		this.log(message, 3);
 	}
 
 	public void debug(@Nonnull String message, @Nullable Object... args) {
@@ -206,13 +188,20 @@ public class Logger {
 			message = String.format(message, args);
 		}
 
-		log(message, 4);
+		this.log(message, 4);
 	}
 
 	public void debug(@Nonnull Object object) {
-		log(this.toString(object), 4);
+		this.log(toString(object), 4);
 	}
 
+	/*
+	 * Converts the incoming object to a string, if this
+	 * is not possible, a prepared message is returned.
+	 *
+	 * @param object the Object for converting.
+	 * @return the converted object as String, or prepared message.
+	 */
 	private String toString(Object object) {
 		if(object == null) {
 			return "null";
@@ -250,6 +239,43 @@ public class Logger {
 			return Arrays.toString((Object[]) object);
 		}
 
-		return "Couldn't find a correct type for the object";
+		return "Couldn't find a correct type for the object.";
+	}
+
+	/*
+	 * Writes a formatted string from arguments using 
+	 * PrintStream to a file, provided that it can write.
+	 *
+	 * @param formattedMessage the formatted string to write.
+	 */
+	private void write(String formattedMessage) {
+		writer.printf("%s%n", formattedMessage);
+	}
+
+	/*
+	 * Checks a directory for old files, and deletes if any.
+	 *
+	 * @param dir the directory as File object for getting the files.
+	 */
+	private void scanDir(File dir) throws IOException {
+		File[] directoryFilesList = dir.listFiles();
+
+		if(directoryFilesList != null) {
+			for(int i = 0; i < directoryFilesList.length; i++) {
+				BasicFileAttributes attrs = Files.readAttributes(directoryFilesList[i].toPath(), BasicFileAttributes.class);
+				FileTime time = attrs.creationTime();
+
+				long diff = (new Date().getTime() - new Date(time.toMillis()).getTime());
+
+				if((int) (diff / (60 * 1000)) > config.getMinimumAgeInMinutes()) {
+					String filename = directoryFilesList[i].getName();
+
+					directoryFilesList[i].delete();
+					if(config.notifyDeleteFiles()) {
+						this.log("\t-> File `" + filename + "` has been deleted.", 3);
+					}
+				}
+			}
+		}
 	}
 }

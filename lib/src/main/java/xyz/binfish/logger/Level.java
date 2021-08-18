@@ -1,20 +1,36 @@
 package xyz.binfish.logger;
 
-class Level {
+public enum Level {
 
-	private String name;
-	private int order;
+	OFF("off", 0),
+	ERROR("error", 1),
+	WARN("warn", 2),
+	INFO("info", 3),
+	DEBUG("debug", 4);
 
-	public Level(String levelName, int levelOrder) {
-		this.name = levelName.toUpperCase();
-		this.order = levelOrder;
+	private final String name;
+	private final int order;
+
+	Level(String name, int order) {
+		this.name = name;
+		this.order = order;
 	}
 
 	public String getName() {
-		return this.name;
+		return name;
 	}
 
 	public int getOrder() {
-		return this.order;
+		return order;
+	}
+
+	public static Level getLevel(int order) {
+		for(Level lvl : values()) {
+			if(lvl.order == order) {
+				return lvl;
+			}
+		}
+
+		return null;
 	}
 }
